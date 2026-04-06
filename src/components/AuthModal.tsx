@@ -1,0 +1,265 @@
+import React, { useState, useEffect } from 'react';
+import { X, Heart, Home } from 'lucide-react';
+import { useAuth } from './AuthProvider';
+import { auth } from '../lib/firebase';
+import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
+
+interface AuthModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export function AuthModal({ isOpen, onClose }: AuthModalProps) {
+  const { signInWithGoogle } = useAuth();
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [showOtp, setShowOtp] = useState(false);
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      // Reset state when modal opens
+      setPhoneNumber('');
+      setOtp(['', '', '', '', '', '']);
+      setShowOtp(false);
+      setConfirmationResult(null);
+      setError('');
+      setLoading(false);
+      
+      // Initialize recaptcha if not already done
+      if (!window.recaptchaVerifier) {
+        try {
+          window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+            size: 'invisible',
+          });
+        } catch (e) {
+          console.error("Recaptcha initialization error", e);
+        }
+      }
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const handleSendOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    
+    if (!phoneNumber || phoneNumber.length < 10) {
+      setError('Please enter a valid 10-digit phone number');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const formattedPhone = `+91${phoneNumber}`;
+      const appVerifier = window.recaptchaVerifier;
+      const confirmation = await signInWithPhoneNumber(auth, formattedPhone, appVerifier);
+      setConfirmationResult(confirmation);
+      setShowOtp(true);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Failed to send OTP. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOtpChange = (index: number, value: string) => {
+    if (value.length > 1) value = value[0];
+    if (!/^\d*$/.test(value)) return;
+
+    const newOtp = [...otp];
+    newOtp[index] = value;
+    setOtp(newOtp);
+
+    // Auto-focus next input
+    if (value && index < 5) {
+      const nextInput = document.getElementById(`otp-${index + 1}`);
+      nextInput?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+      const prevInput = document.getElementById(`otp-${index - 1}`);
+      prevInput?.focus();
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    const otpCode = otp.join('');
+    
+    if (otpCode.length !== 6) {
+      setError('Please enter the 6-digit OTP');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      if (confirmationResult) {
+        await confirmationResult.confirm(otpCode);
+        // AuthProvider will handle the success and close the modal
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError('Invalid OTP. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden animate-in fade-in zoom-in duration-200">
+        {/* Close Button */}
+        <button 
+          onClick={onClose}
+          className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors z-10"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        <div className="p-8">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-12 h-12 bg-primary rounded-xl text-white mb-4 relative">
+              <Home className="w-7 h-7" />
+              <Heart className="w-3.5 h-3.5 absolute bottom-2 right-2 fill-current" />
+            </div>
+            <h2 className="text-2xl font-heading font-bold text-gray-900 mb-2">Sign in to continue</h2>
+            <p className="text-gray-500 text-sm">Create a free account to connect with service providers</p>
+          </div>
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg text-center">
+              {error}
+            </div>
+          )}
+
+          {/* Google Sign In */}
+          <button
+            onClick={signInWithGoogle}
+            className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-50 transition-colors mb-6"
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24">
+              <path
+                fill="currentColor"
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+              />
+            </svg>
+            Continue with Google
+          </button>
+
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-200"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">or</span>
+            </div>
+          </div>
+
+          {/* Phone Auth */}
+          {!showOtp ? (
+            <form onSubmit={handleSendOtp}>
+              <div className="mb-4">
+                <div className="flex rounded-xl border border-gray-300 overflow-hidden focus-within:ring-2 focus-within:ring-primary focus-within:border-primary transition-all">
+                  <span className="flex items-center px-4 bg-gray-50 text-gray-500 border-r border-gray-300 font-medium">
+                    +91
+                  </span>
+                  <input
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    placeholder="Phone number"
+                    className="w-full px-4 py-3 outline-none"
+                    required
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={loading || phoneNumber.length < 10}
+                className="w-full py-3 bg-primary text-white font-medium rounded-xl hover:bg-primary-dark transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Sending...' : 'Send OTP'}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleVerifyOtp}>
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 text-center mb-3">
+                  Enter 6-digit OTP sent to +91 {phoneNumber}
+                </label>
+                <div className="flex justify-between gap-2">
+                  {otp.map((digit, index) => (
+                    <input
+                      key={index}
+                      id={`otp-${index}`}
+                      type="text"
+                      inputMode="numeric"
+                      value={digit}
+                      onChange={(e) => handleOtpChange(index, e.target.value)}
+                      onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                      className="w-12 h-12 text-center text-xl font-semibold border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+                      maxLength={1}
+                    />
+                  ))}
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={loading || otp.join('').length < 6}
+                className="w-full py-3 bg-primary text-white font-medium rounded-xl hover:bg-primary-dark transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Verifying...' : 'Verify OTP'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOtp(false);
+                  setOtp(['', '', '', '', '', '']);
+                  setError('');
+                }}
+                className="w-full mt-3 py-2 text-sm text-gray-500 hover:text-gray-700 font-medium"
+              >
+                Change Phone Number
+              </button>
+            </form>
+          )}
+
+          <div id="recaptcha-container"></div>
+
+          <p className="mt-8 text-center text-xs text-gray-400">
+            By continuing you agree to our <br />
+            <a href="#" className="underline hover:text-gray-600">Terms & Conditions</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Add to global window object for recaptcha
+declare global {
+  interface Window {
+    recaptchaVerifier: any;
+  }
+}

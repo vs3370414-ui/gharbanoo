@@ -1,0 +1,164 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the application.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The unique identifier of the user."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "The email address of the user."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "The display name of the user."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin", "user"],
+          "description": "The role of the user."
+        },
+        "createdAt": {
+          "type": "timestamp",
+          "description": "The time the user was created."
+        }
+      },
+      "required": ["uid", "email", "role", "createdAt"]
+    },
+    "Provider": {
+      "title": "Provider",
+      "description": "A home service provider.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the provider."
+        },
+        "service": {
+          "type": "string",
+          "enum": ["Plumber", "Electrician", "Carpenter", "Painter", "Contractor"],
+          "description": "The service type."
+        },
+        "phone": {
+          "type": "string",
+          "description": "The phone number of the provider."
+        },
+        "whatsapp": {
+          "type": "string",
+          "description": "The WhatsApp number of the provider."
+        },
+        "experience": {
+          "type": "number",
+          "description": "Years of experience."
+        },
+        "area": {
+          "type": "string",
+          "description": "Area in Jhanjharpur."
+        },
+        "about": {
+          "type": "string",
+          "description": "About the provider."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "approved", "rejected"],
+          "description": "The approval status of the provider."
+        },
+        "createdAt": {
+          "type": "timestamp",
+          "description": "The time the provider was registered."
+        },
+        "authorUid": {
+          "type": "string",
+          "description": "The UID of the user who registered this provider."
+        }
+      },
+      "required": ["name", "service", "phone", "status", "createdAt", "authorUid"]
+    },
+    "HousePlanRequest": {
+      "title": "House Plan Request",
+      "description": "A request for a house plan.",
+      "type": "object",
+      "properties": {
+        "full_name": { "type": "string" },
+        "phone": { "type": "string" },
+        "plot_length": { "type": "string" },
+        "plot_width": { "type": "string" },
+        "floors": { "type": "string" },
+        "bedrooms": { "type": "string" },
+        "budget": { "type": "string" },
+        "plan_type": { "type": "string" },
+        "requirements": { "type": "string" },
+        "timestamp": { "type": "timestamp" },
+        "authorUid": { "type": "string" }
+      },
+      "required": ["full_name", "phone", "timestamp", "authorUid"]
+    },
+    "ProviderRegistration": {
+      "title": "Provider Registration",
+      "description": "A request to join as a provider.",
+      "type": "object",
+      "properties": {
+        "full_name": { "type": "string" },
+        "phone": { "type": "string" },
+        "whatsapp": { "type": "string" },
+        "service_type": { "type": "string" },
+        "experience": { "type": "string" },
+        "area": { "type": "string" },
+        "about": { "type": "string" },
+        "timestamp": { "type": "timestamp" },
+        "authorUid": { "type": "string" }
+      },
+      "required": ["full_name", "phone", "service_type", "timestamp", "authorUid"]
+    },
+    "ContactMessage": {
+      "title": "Contact Message",
+      "description": "A message from the contact form.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "message": { "type": "string" },
+        "timestamp": { "type": "timestamp" }
+      },
+      "required": ["name", "phone", "message", "timestamp"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/User"
+      },
+      "description": "Stores user profiles."
+    },
+    "providers/{providerId}": {
+      "schema": {
+        "$ref": "#/entities/Provider"
+      },
+      "description": "Stores service providers."
+    },
+    "house_plan_requests/{requestId}": {
+      "schema": {
+        "$ref": "#/entities/HousePlanRequest"
+      },
+      "description": "Stores house plan requests."
+    },
+    "provider_registrations/{registrationId}": {
+      "schema": {
+        "$ref": "#/entities/ProviderRegistration"
+      },
+      "description": "Stores provider registration requests."
+    },
+    "contact_messages/{messageId}": {
+      "schema": {
+        "$ref": "#/entities/ContactMessage"
+      },
+      "description": "Stores contact form messages."
+    }
+  }
+}
