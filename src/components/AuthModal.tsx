@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Heart, Home } from 'lucide-react';
 import { useAuth } from './AuthProvider';
-import { auth } from '../lib/firebase';
-import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -11,107 +9,16 @@ interface AuthModalProps {
 
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const { signInWithGoogle } = useAuth();
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const [showOtp, setShowOtp] = useState(false);
-  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       // Reset state when modal opens
-      setPhoneNumber('');
-      setOtp(['', '', '', '', '', '']);
-      setShowOtp(false);
-      setConfirmationResult(null);
       setError('');
-      setLoading(false);
-      
-      // Initialize recaptcha if not already done
-      if (!window.recaptchaVerifier) {
-        try {
-          window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-            size: 'invisible',
-          });
-        } catch (e) {
-          console.error("Recaptcha initialization error", e);
-        }
-      }
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
-
-  const handleSendOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    
-    if (!phoneNumber || phoneNumber.length < 10) {
-      setError('Please enter a valid 10-digit phone number');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const formattedPhone = `+91${phoneNumber}`;
-      const appVerifier = window.recaptchaVerifier;
-      const confirmation = await signInWithPhoneNumber(auth, formattedPhone, appVerifier);
-      setConfirmationResult(confirmation);
-      setShowOtp(true);
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || 'Failed to send OTP. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleOtpChange = (index: number, value: string) => {
-    if (value.length > 1) value = value[0];
-    if (!/^\d*$/.test(value)) return;
-
-    const newOtp = [...otp];
-    newOtp[index] = value;
-    setOtp(newOtp);
-
-    // Auto-focus next input
-    if (value && index < 5) {
-      const nextInput = document.getElementById(`otp-${index + 1}`);
-      nextInput?.focus();
-    }
-  };
-
-  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && !otp[index] && index > 0) {
-      const prevInput = document.getElementById(`otp-${index - 1}`);
-      prevInput?.focus();
-    }
-  };
-
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    const otpCode = otp.join('');
-    
-    if (otpCode.length !== 6) {
-      setError('Please enter the 6-digit OTP');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      if (confirmationResult) {
-        await confirmationResult.confirm(otpCode);
-        // AuthProvider will handle the success and close the modal
-      }
-    } catch (err: any) {
-      console.error(err);
-      setError('Invalid OTP. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -167,86 +74,6 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             Continue with Google
           </button>
 
-          <div className="relative mb-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">or</span>
-            </div>
-          </div>
-
-          {/* Phone Auth */}
-          {!showOtp ? (
-            <form onSubmit={handleSendOtp}>
-              <div className="mb-4">
-                <div className="flex rounded-xl border border-gray-300 overflow-hidden focus-within:ring-2 focus-within:ring-primary focus-within:border-primary transition-all">
-                  <span className="flex items-center px-4 bg-gray-50 text-gray-500 border-r border-gray-300 font-medium">
-                    +91
-                  </span>
-                  <input
-                    type="tel"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                    placeholder="Phone number"
-                    className="w-full px-4 py-3 outline-none"
-                    required
-                  />
-                </div>
-              </div>
-              <button
-                type="submit"
-                disabled={loading || phoneNumber.length < 10}
-                className="w-full py-3 bg-primary text-white font-medium rounded-xl hover:bg-primary-dark transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
-              >
-                {loading ? 'Sending...' : 'Send OTP'}
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={handleVerifyOtp}>
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 text-center mb-3">
-                  Enter 6-digit OTP sent to +91 {phoneNumber}
-                </label>
-                <div className="flex justify-between gap-2">
-                  {otp.map((digit, index) => (
-                    <input
-                      key={index}
-                      id={`otp-${index}`}
-                      type="text"
-                      inputMode="numeric"
-                      value={digit}
-                      onChange={(e) => handleOtpChange(index, e.target.value)}
-                      onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                      className="w-12 h-12 text-center text-xl font-semibold border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
-                      maxLength={1}
-                    />
-                  ))}
-                </div>
-              </div>
-              <button
-                type="submit"
-                disabled={loading || otp.join('').length < 6}
-                className="w-full py-3 bg-primary text-white font-medium rounded-xl hover:bg-primary-dark transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
-              >
-                {loading ? 'Verifying...' : 'Verify OTP'}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowOtp(false);
-                  setOtp(['', '', '', '', '', '']);
-                  setError('');
-                }}
-                className="w-full mt-3 py-2 text-sm text-gray-500 hover:text-gray-700 font-medium"
-              >
-                Change Phone Number
-              </button>
-            </form>
-          )}
-
-          <div id="recaptcha-container"></div>
-
           <p className="mt-8 text-center text-xs text-gray-400">
             By continuing you agree to our <br />
             <a href="#" className="underline hover:text-gray-600">Terms & Conditions</a>
@@ -255,11 +82,4 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       </div>
     </div>
   );
-}
-
-// Add to global window object for recaptcha
-declare global {
-  interface Window {
-    recaptchaVerifier: any;
-  }
 }
